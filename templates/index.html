@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Business Card Print Aligner</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f9; padding: 40px; }
+        .container { background: white; padding: 30px; border-radius: 8px; max-width: 500px; margin: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: #333; }
+        label { font-weight: bold; margin-top: 15px; display: block; }
+        input[type="file"], input[type="number"] { width: 100%; padding: 10px; margin-top: 5px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        input[type="range"] { width: 100%; margin-top: 5px; margin-bottom: 5px; cursor: pointer; }
+        .slider-value { display: flex; justify-content: space-between; align-items: center; font-size: 0.9em; color: #666; margin-bottom: 15px; }
+        button { width: 100%; background-color: #28a745; color: white; padding: 12px; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; }
+        button:hover { background-color: #218838; }
+        .note { font-size: 0.9em; color: #666; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>التعاضدية الوطنية لطباعة نسخ بطاقاتكم الشخصية</h2>
+    <p class="note">قم برفع صورتين للبطاقة التي تريد نسخها واحدة أمامية والأخرى خلفية ثم ادخل عدد النسخ الذي لا يتجاوز العشرة</p>
+    
+    <form action="/generate" method="POST" enctype="multipart/form-data">
+        <label for="front">الوجه الأمامي:</label>
+        <input type="file" name="front" accept="image/*" required>
+
+        <label for="back">الوجه الخلفي:</label>
+        <input type="file" name="back" accept="image/*" required>
+
+        <label for="num_cards">كم نسخة تحتاج؟(1 to 10):</label>
+        <input type="number" name="num_cards" min="1" max="10" value="6" required>
+
+        <label for="padding">المكان بين كل بطاقة وجوارها (mm):</label>
+        <input type="range" name="padding" id="padding" min="0" max="5" step="0.5" value="2">
+        <div class="slider-value">
+            <span>0 mm</span>
+            <span id="padding-display">2 mm</span>
+            <span>5 mm</span>
+        </div>
+
+        <button type="submit">التحصل على الملف بصيغة PDF</button>
+    </form>
+</div>
+
+<script>
+    // Existing padding display script
+    document.getElementById('padding').addEventListener('input', function() {
+        document.getElementById('padding-display').textContent = this.value + ' mm';
+    });
+
+    // New Background Submission Logic
+    document.querySelector('form').addEventListener('submit', async function(e) {
+        // 1. Stop the browser's default form submission
+        e.preventDefault(); 
+
+        const form = e.target;
+        const button = form.querySelector('button');
+        const originalText = button.textContent;
+
+        // 2. Disable the button to prevent double-clicks
+        button.textContent = 'Generating PDF...';
+        button.disabled = true;
+
+        try {
+            // 3. Send the data to Flask in the background
+            const response = await fetch(form.action, {
+                method: 'POST',
+                body: new FormData(form)
+            });
+
+            if (response.ok) {
+                // SUCCESS: Convert the incoming PDF stream to a file and trigger download
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'business_cards_ready_to_print.pdf'; 
+                document.body.appendChild(a);
+                a.click(); // Force the download
+                a.remove();
+                window.URL.revokeObjectURL(url); // Clean up memory
+            } else {
+                // ERROR: Show the Flask error message safely on the screen
+                const errorText = await response.text();
+                alert(errorText); 
+            }
+        } catch (error) {
+            alert("A network error occurred while communicating with the server.");
+        } finally {
+            // 4. Re-enable the button so the user can try again easily
+            button.textContent = originalText;
+            button.disabled = false;
+        }
+    });
+</script>
+
+</body>
+</html>
